@@ -62,30 +62,7 @@ let pendingSlot   = null;
 let visitorCode   = null;  // code du visiteur courant (si saisi)
 let visitorEmail  = null;  // email du visiteur courant
 
-/* ── Génération code visiteur ─────────────────────────────────── */
 
-function generateCode() {
-  return String(Math.floor(100000 + Math.random() * 900000));
-}
-
-async function getOrCreateVisitorCode(email) {
-  // Chercher si le visiteur a déjà un code
-  const { getDocs, query, where } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
-  const snap = await getDocs(query(collection(db, 'visiteurs'), where('email', '==', email.toLowerCase())));
-  if (!snap.empty) {
-    return { code: snap.docs[0].data().code, isNew: false };
-  }
-  // Créer un nouveau code
-  const code = generateCode();
-  await addDoc(collection(db, 'visiteurs'), { email: email.toLowerCase(), code, createdAt: Date.now() });
-  return { code, isNew: true };
-}
-
-async function checkVisitorCode(email, code) {
-  const { getDocs, query, where } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
-  const snap = await getDocs(query(collection(db, 'visiteurs'), where('email', '==', email.toLowerCase()), where('code', '==', code)));
-  return !snap.empty;
-}
 
 /* ── Utilitaires ─────────────────────────────────────────────── */
 
