@@ -46,6 +46,7 @@
   <div class="admin-tabs">
     <button class="atab active" data-tab="calendrier"><i class="ti ti-calendar"></i> Calendriers</button>
     <button class="atab" data-tab="rdvs"><i class="ti ti-calendar-check"></i> Rendez-vous <span id="rdv-badge" class="rdv-badge"></span></button>
+    <button class="atab" data-tab="visiteurs"><i class="ti ti-users"></i> Visiteurs <span id="vis-badge" class="rdv-badge"></span></button>
   </div>
 
   <div id="tab-calendrier" class="admin-layout">
@@ -114,6 +115,25 @@
       </div>
     </div>
     <div id="rdv-list"></div>
+  </div>
+
+  <div id="tab-visiteurs" style="display:none;padding:1.75rem;max-width:900px;margin:0 auto">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem;flex-wrap:wrap;gap:10px">
+      <div style="font-family:var(--font);font-size:20px;font-weight:700;color:var(--ink)">Visiteurs inscrits</div>
+      <div style="display:flex;gap:8px">
+        <input id="vis-admin-search" type="text" placeholder="Rechercher un visiteur…" style="padding:7px 12px;border-radius:8px;border:1.5px solid var(--brd2);font-family:var(--font);font-size:13px;min-width:220px" />
+      </div>
+    </div>
+    <div id="visiteurs-list"></div>
+
+    <!-- Panneau détail visiteur -->
+    <div id="visiteur-detail" style="display:none;margin-top:1.5rem;background:#fff;border:1.5px solid var(--brd2);border-radius:16px;padding:1.5rem">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem">
+        <div id="vd-title" style="font-size:16px;font-weight:700;color:var(--ink)"></div>
+        <button id="vd-close" class="icon-btn"><i class="ti ti-x"></i></button>
+      </div>
+      <div id="vd-body"></div>
+    </div>
   </div>
 
 </div>

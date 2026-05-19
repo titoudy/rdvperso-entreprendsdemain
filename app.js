@@ -226,13 +226,59 @@ function closeDrawer() {
   document.body.style.overflow = '';
 }
 
+function applyQuickCode() {
+  const code   = (el('m-code-rapide')?.value || '').trim();
+  const status = el('m-code-status');
+  if (!/^\d{6}$/.test(code)) {
+    if (status) { status.textContent = '⚠️ Le code doit contenir 6 chiffres.'; status.style.color = 'var(--red)'; }
+    return;
+  }
+  const visitor = DATA.visitors.find(v => v.code === code);
+  if (!visitor) {
+    if (status) { status.textContent = '❌ Code introuvable. Vérifiez votre code.'; status.style.color = 'var(--red)'; }
+    return;
+  }
+  // Trouver les infos du visiteur depuis ses bookings précédents
+  const prevBooking = DATA.bookings.find(b => (b.email||'').toLowerCase() === visitor.email);
+  if (prevBooking) {
+    if (el('m-prenom'))  el('m-prenom').value  = prevBooking.prenom  || '';
+    if (el('m-nom'))     el('m-nom').value      = prevBooking.nom     || '';
+    if (el('m-email'))   el('m-email').value    = prevBooking.email   || '';
+    if (el('m-societe')) el('m-societe').value  = prevBooking.societe || '';
+    // Verrouiller les champs pour éviter modification
+    ['m-prenom','m-nom','m-email','m-societe'].forEach(id => {
+      const field = el(id);
+      if (field) { field.readOnly = true; field.style.background = 'var(--cyan-l)'; field.style.color = 'var(--cyan-d)'; }
+    });
+    if (status) { status.textContent = '✓ Informations pré-remplies — il ne vous reste qu\'à décrire votre problématique.'; status.style.color = 'var(--green)'; }
+    setTimeout(() => el('m-problematique')?.focus(), 100);
+  } else {
+    if (el('m-email')) el('m-email').value = visitor.email;
+    if (status) { status.textContent = '✓ Code reconnu. Complétez les champs manquants.'; status.style.color = 'var(--green)'; }
+  }
+}
+
 function openModal(start, end) {
   pendingSlot = start;
   const exp = DATA.exposants.find(e => e.id === pendingExp);
   el('m-info').textContent = `${exp.name} · ${start}–${end} · ${start >= '14:00' ? 'Après-midi' : 'Matin'} · 22 sept. 2026`;
-  ['m-prenom','m-nom','m-email','m-societe','m-problematique'].forEach(id => { const e = el(id); if(e) e.value = ''; });
+  // Reset champs
+  ['m-prenom','m-nom','m-email','m-societe','m-problematique','m-code-rapide'].forEach(id => {
+    const e = el(id); if(e) { e.value = ''; e.readOnly = false; e.style.background = ''; e.style.color = ''; }
+  });
+  if (el('m-code-status')) { el('m-code-status').textContent = 'Vos informations seront pré-remplies automatiquement.'; el('m-code-status').style.color = 'var(--ink3)'; }
   el('modal').classList.add('open');
-  setTimeout(() => el('m-prenom').focus(), 80);
+  setTimeout(() => el('m-code-rapide')?.focus(), 80);
+
+  // Brancher le bouton appliquer code
+  const applyBtn = el('m-code-apply');
+  if (applyBtn) {
+    applyBtn.onclick = applyQuickCode;
+  }
+  const codeInput = el('m-code-rapide');
+  if (codeInput) {
+    codeInput.onkeydown = e => { if (e.key === 'Enter') applyQuickCode(); };
+  }
 }
 
 function closeModal() {
@@ -278,6 +324,7 @@ function showCodeModal(code, prenom, expName, start, end) {
           Ce code est <strong>unique et définitif</strong>. Avec lui, vous pouvez :<br>
           • Accéder rapidement à votre planning<br>
           • <strong>Annuler vos RDV</strong> si besoin<br><br>
+          <strong>Avec ce code lors de vos prochaines réservations</strong>, vous n'aurez plus besoin de renseigner vos informations personnelles déjà enregistrées — elles seront pré-remplies automatiquement.<br><br>
           <strong>Sans ce code</strong>, vous pouvez toujours consulter votre planning avec votre email, mais vous ne pourrez pas annuler vos RDV. Pour toute modification, contactez l'équipe communication de PIE par email.
         </div>
       </div>
@@ -713,9 +760,11 @@ const IS_VISITOR = !!el('grid');
 
 function switchAdminTab(tab) {
   document.querySelectorAll('.atab').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
-  el('tab-calendrier').style.display = tab === 'calendrier' ? 'flex' : 'none';
-  el('tab-rdvs').style.display       = tab === 'rdvs'       ? 'block' : 'none';
-  if (tab === 'rdvs') renderRdvList();
+  el('tab-calendrier').style.display  = tab === 'calendrier'  ? 'flex'  : 'none';
+  el('tab-rdvs').style.display        = tab === 'rdvs'        ? 'block' : 'none';
+  el('tab-visiteurs').style.display   = tab === 'visiteurs'   ? 'block' : 'none';
+  if (tab === 'rdvs')      renderRdvList();
+  if (tab === 'visiteurs') renderVisiteursList();
 }
 
 function renderRdvList() {
@@ -802,6 +851,109 @@ function exportCsv() {
   URL.revokeObjectURL(url);
 }
 
+/* ── Visiteurs admin ──────────────────────────────────────────── */
+
+function renderVisiteursList() {
+  const search  = (el('vis-admin-search')?.value || '').toLowerCase();
+  const listEl  = el('visiteurs-list');
+  if (!listEl) return;
+
+  // Badge
+  const badge = el('vis-badge');
+  if (badge) badge.textContent = DATA.visitors.length || '';
+
+  // Construire liste unique par email avec infos du dernier booking
+  const visiteurs = DATA.visitors.map(v => {
+    const bookings = DATA.bookings.filter(b => (b.email||'').toLowerCase() === v.email).sort((a,b) => a.slotStart.localeCompare(b.slotStart));
+    const first    = bookings[0];
+    return { ...v, bookings, prenom: first?.prenom||'', nom: first?.nom||'', societe: first?.societe||'' };
+  }).filter(v => {
+    if (!search) return true;
+    return (v.prenom+' '+v.nom+' '+v.email+' '+(v.societe||'')).toLowerCase().includes(search);
+  }).sort((a,b) => (a.nom||'').localeCompare(b.nom||''));
+
+  if (!visiteurs.length) {
+    listEl.innerHTML = '<div class="empty-state"><i class="ti ti-users"></i><p>Aucun visiteur inscrit pour le moment.</p></div>';
+    return;
+  }
+
+  listEl.innerHTML = `<table class="rdv-table">
+    <thead><tr>
+      <th>Visiteur</th>
+      <th>Email</th>
+      <th>Société</th>
+      <th>Code</th>
+      <th>RDV</th>
+      <th></th>
+    </tr></thead>
+    <tbody>
+    ${visiteurs.map(v => `<tr>
+      <td><strong>${v.prenom} ${v.nom}</strong></td>
+      <td>${v.email}</td>
+      <td>${v.societe || '–'}</td>
+      <td>
+        <span style="font-family:monospace;font-size:15px;font-weight:700;color:var(--cyan);background:var(--cyan-l);padding:3px 10px;border-radius:6px;letter-spacing:.1em">${v.code}</span>
+      </td>
+      <td><span style="font-weight:600;color:var(--cyan)">${v.bookings.length}</span></td>
+      <td><button class="btn-primary" style="padding:5px 12px;font-size:12px" data-vid="${v.id}">
+        <i class="ti ti-eye"></i> Voir
+      </button></td>
+    </tr>`).join('')}
+    </tbody>
+  </table>`;
+
+  listEl.querySelectorAll('[data-vid]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const v = visiteurs.find(x => x.id === btn.dataset.vid);
+      if (v) openVisiteurDetail(v);
+    });
+  });
+}
+
+function openVisiteurDetail(v) {
+  const detail = el('visiteur-detail');
+  if (!detail) return;
+
+  el('vd-title').innerHTML = `<i class="ti ti-user-circle" style="color:var(--cyan);font-size:20px;vertical-align:-3px;margin-right:6px"></i>${v.prenom} ${v.nom}`;
+
+  const rdvsSorted = v.bookings.sort((a,b) => a.slotStart.localeCompare(b.slotStart));
+
+  el('vd-body').innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:1.25rem">
+      <div style="background:var(--surf2);border-radius:10px;padding:.9rem">
+        <div style="font-size:11px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:.4rem">Informations</div>
+        <div style="font-size:13px;color:var(--ink);margin-bottom:3px"><strong>Email :</strong> ${v.email}</div>
+        <div style="font-size:13px;color:var(--ink);margin-bottom:3px"><strong>Société :</strong> ${v.societe||'–'}</div>
+        <div style="font-size:13px;color:var(--ink)"><strong>RDV confirmés :</strong> ${v.bookings.length}</div>
+      </div>
+      <div style="background:var(--cyan-l);border:1.5px solid var(--brd2);border-radius:10px;padding:.9rem;text-align:center">
+        <div style="font-size:11px;font-weight:600;color:var(--cyan-d);text-transform:uppercase;letter-spacing:.06em;margin-bottom:.4rem">Code personnel</div>
+        <div style="font-size:36px;font-weight:700;color:var(--cyan);font-family:monospace;letter-spacing:.15em">${v.code}</div>
+      </div>
+    </div>
+
+    <div style="font-size:13px;font-weight:600;color:var(--ink);margin-bottom:.6rem">Planning du 22 septembre 2026</div>
+    ${rdvsSorted.length ? rdvsSorted.map(b => {
+      const exp  = DATA.exposants.find(e => e.id === b.exposantId);
+      const isPm = b.period === 'aprem';
+      return `<div style="display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:10px;background:${isPm?'#FFFBE6':'var(--cyan-l)'};border:1.5px solid ${isPm?'#FFD82B':'var(--brd2)'};margin-bottom:8px">
+        <div style="font-family:monospace;font-size:16px;font-weight:700;color:${isPm?'#B8940A':'var(--cyan)'};min-width:100px">${b.slotStart}–${b.slotEnd}</div>
+        <div style="flex:1">
+          <div style="font-size:13px;font-weight:600;color:var(--ink)">${exp?.name||'–'}</div>
+          <div style="font-size:11px;color:var(--ink3)">${exp?.cat||''}${exp?.expertise?' · '+exp.expertise:''}</div>
+          ${b.problematique ? `<div style="font-size:11px;color:var(--ink2);margin-top:3px;font-style:italic">"${b.problematique}"</div>` : ''}
+        </div>
+        <span style="font-size:11px;padding:2px 8px;border-radius:4px;font-weight:600;background:${isPm?'#FFD82B':'var(--cyan)'};color:${isPm?'#5A4A00':'#fff'}">${isPm?'Après-midi':'Matin'}</span>
+      </div>`;
+    }).join('') : '<div style="font-size:13px;color:var(--ink3);text-align:center;padding:1rem">Aucun RDV pour ce visiteur.</div>'}
+  `;
+
+  detail.style.display = 'block';
+  detail.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+  el('vd-close').onclick = () => { detail.style.display = 'none'; };
+}
+
 if (IS_ADMIN) {
   el('add-btn').addEventListener('click', toggleForm);
   el('form-cancel').addEventListener('click', toggleForm);
@@ -813,6 +965,7 @@ if (IS_ADMIN) {
   el('rdv-filter-exp')?.addEventListener('change', renderRdvList);
   el('rdv-filter-period')?.addEventListener('change', renderRdvList);
   el('export-csv')?.addEventListener('click', exportCsv);
+  el('vis-admin-search')?.addEventListener('input', renderVisiteursList);
 
   initLogin();
 }

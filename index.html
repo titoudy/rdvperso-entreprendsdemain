@@ -118,10 +118,22 @@
       <button id="modal-close" class="icon-btn"><i class="ti ti-x"></i></button>
     </div>
     <div class="modal-body">
-      <div class="field"><label>Prénom *</label><input id="m-prenom" placeholder="Votre prénom" /></div>
-      <div class="field"><label>Nom *</label><input id="m-nom" placeholder="Votre nom" /></div>
-      <div class="field"><label>Email *</label><input id="m-email" type="email" placeholder="vous@exemple.fr" /></div>
-      <div class="field"><label>Société</label><input id="m-societe" placeholder="Votre société (optionnel)" /></div>
+      <!-- Bloc code rapide -->
+      <div id="code-quick-block" style="background:var(--cyan-l);border:1.5px solid var(--brd2);border-radius:10px;padding:.9rem;margin-bottom:.5rem">
+        <div style="font-size:12px;font-weight:700;color:var(--cyan-d);margin-bottom:.4rem"><i class="ti ti-key" style="font-size:13px"></i> Déjà inscrit ? Utilisez votre code</div>
+        <div style="display:flex;gap:8px">
+          <input id="m-code-rapide" type="text" maxlength="6" placeholder="Code à 6 chiffres" style="flex:1;padding:7px 10px;border-radius:7px;border:1.5px solid var(--brd2);font-family:var(--font);font-size:14px;letter-spacing:.15em;font-weight:600;color:var(--cyan)" />
+          <button id="m-code-apply" class="btn-primary" style="padding:7px 14px;font-size:13px"><i class="ti ti-arrow-right"></i> Appliquer</button>
+        </div>
+        <div id="m-code-status" style="font-size:11px;margin-top:5px;color:var(--ink3)">Vos informations seront pré-remplies automatiquement.</div>
+      </div>
+
+      <div id="m-fields">
+        <div class="field"><label>Prénom *</label><input id="m-prenom" placeholder="Votre prénom" /></div>
+        <div class="field"><label>Nom *</label><input id="m-nom" placeholder="Votre nom" /></div>
+        <div class="field"><label>Email *</label><input id="m-email" type="email" placeholder="vous@exemple.fr" /></div>
+        <div class="field"><label>Société</label><input id="m-societe" placeholder="Votre société (optionnel)" /></div>
+      </div>
       <div class="field"><label>Votre problématique *</label><textarea id="m-problematique" placeholder="Décrivez brièvement votre problématique…" rows="3"></textarea></div>
     </div>
     <div class="modal-foot">
