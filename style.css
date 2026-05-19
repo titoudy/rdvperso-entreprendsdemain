@@ -298,3 +298,6 @@ body { font-family: var(--font); background: var(--bg); color: var(--ink); -webk
 .edit-exp-btn:hover { color: var(--cyan); background: var(--cyan-l); }
 .exp-item.active .edit-exp-btn { color: rgba(255,255,255,.5); }
 .exp-item.active .edit-exp-btn:hover { color: #fff; background: rgba(255,255,255,.2); }
+
+/* ── Mes RDV header ── */
+.mes-rdv-header { background: var(--white); border: 1.5px solid var(--brd2); border-radius: var(--rl); padding: 1rem 1.25rem; margin-bottom: 1rem; }

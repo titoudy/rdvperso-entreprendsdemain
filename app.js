@@ -50,14 +50,42 @@ function slotsForPeriod(period) {
 
 const DATA = {
   exposants: [],
-  slots:     {},   // { exposantId: [{id, start, end, period, enabled}] }
+  slots:     {},
   bookings:  [],
+  visitors:  [],   // [{id, email, code}]
 };
 
-let selId       = null;  // exposant sélectionné (admin)
-let periodFilter = '';   // filtre visiteur
-let pendingExp  = null;  // RDV en cours
-let pendingSlot = null;
+let selId        = null;
+let periodFilter  = '';
+let pendingExp    = null;
+let pendingSlot   = null;
+let visitorCode   = null;  // code du visiteur courant (si saisi)
+let visitorEmail  = null;  // email du visiteur courant
+
+/* ── Génération code visiteur ─────────────────────────────────── */
+
+function generateCode() {
+  return String(Math.floor(100000 + Math.random() * 900000));
+}
+
+async function getOrCreateVisitorCode(email) {
+  // Chercher si le visiteur a déjà un code
+  const { getDocs, query, where } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
+  const snap = await getDocs(query(collection(db, 'visiteurs'), where('email', '==', email.toLowerCase())));
+  if (!snap.empty) {
+    return { code: snap.docs[0].data().code, isNew: false };
+  }
+  // Créer un nouveau code
+  const code = generateCode();
+  await addDoc(collection(db, 'visiteurs'), { email: email.toLowerCase(), code, createdAt: Date.now() });
+  return { code, isNew: true };
+}
+
+async function checkVisitorCode(email, code) {
+  const { getDocs, query, where } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
+  const snap = await getDocs(query(collection(db, 'visiteurs'), where('email', '==', email.toLowerCase()), where('code', '==', code)));
+  return !snap.empty;
+}
 
 /* ── Utilitaires ─────────────────────────────────────────────── */
 
@@ -95,13 +123,15 @@ function toast(msg) {
 async function loadData() {
   loader(true);
   try {
-    const [eSnap, sSnap, bSnap] = await Promise.all([
+    const [eSnap, sSnap, bSnap, vSnap] = await Promise.all([
       getDocs(query(collection(db, 'exposants'), orderBy('createdAt'))),
       getDocs(query(collection(db, 'slots'),     orderBy('start'))),
       getDocs(query(collection(db, 'bookings'),  orderBy('slotStart'))),
+      getDocs(collection(db, 'visitors')),
     ]);
     DATA.exposants = eSnap.docs.map(d => ({ id: d.id, ...d.data() }));
     DATA.bookings  = bSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+    DATA.visitors  = vSnap.docs.map(d => ({ id: d.id, ...d.data() }));
     DATA.slots = {};
     sSnap.docs.forEach(d => {
       const s = { id: d.id, ...d.data() };
@@ -222,7 +252,7 @@ function closeDrawer() {
 function openModal(start, end) {
   pendingSlot = start;
   const exp = DATA.exposants.find(e => e.id === pendingExp);
-  el('m-info').textContent = `${exp.name} · ${start}–${end} · ${start >= '14:00' ? 'Après-midi' : 'Matin'} · 22 sept. 2025`;
+  el('m-info').textContent = `${exp.name} · ${start}–${end} · ${start >= '14:00' ? 'Après-midi' : 'Matin'} · 22 sept. 2026`;
   ['m-prenom','m-nom','m-email','m-societe','m-problematique'].forEach(id => { const e = el(id); if(e) e.value = ''; });
   el('modal').classList.add('open');
   setTimeout(() => el('m-prenom').focus(), 80);
@@ -230,6 +260,60 @@ function openModal(start, end) {
 
 function closeModal() {
   el('modal')?.classList.remove('open');
+}
+
+/* ── Système de code visiteur ─────────────────────────────────── */
+
+function genCode() {
+  return String(Math.floor(100000 + Math.random() * 900000));
+}
+
+async function getOrCreateVisitorCode(email) {
+  const emailLow = email.toLowerCase();
+  const existing = DATA.visitors.find(v => v.email === emailLow);
+  if (existing) return { code: existing.code, isNew: false };
+  const code = genCode();
+  const ref  = await addDoc(collection(db, 'visitors'), { email: emailLow, code, createdAt: Date.now() });
+  DATA.visitors.push({ id: ref.id, email: emailLow, code });
+  return { code, isNew: true };
+}
+
+function showCodeModal(code, prenom, expName, start, end) {
+  navigator.clipboard.writeText(code).catch(() => {});
+  const overlay = document.createElement('div');
+  overlay.id = 'code-modal';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:800;display:flex;align-items:center;justify-content:center;padding:1rem';
+  overlay.innerHTML = `
+    <div style="background:#fff;border-radius:20px;padding:2rem;max-width:440px;width:100%;text-align:center;border:2px solid var(--cyan);box-shadow:0 20px 60px rgba(0,0,0,.2)">
+      <i class="ti ti-circle-check" style="font-size:40px;color:var(--cyan);display:block;margin-bottom:.75rem"></i>
+      <div style="font-size:15px;font-weight:700;color:var(--ink);margin-bottom:.25rem">RDV confirmé !</div>
+      <div style="font-size:13px;color:var(--ink3);margin-bottom:1.5rem">${start}–${end} chez ${expName}</div>
+
+      <div style="background:var(--cyan-l);border:2px solid var(--cyan);border-radius:14px;padding:1.25rem;margin-bottom:1rem">
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--cyan-d);margin-bottom:.5rem">🔑 Votre code personnel</div>
+        <div style="font-size:52px;font-weight:700;color:var(--cyan);letter-spacing:.2em;font-family:monospace">${code}</div>
+        <div style="font-size:12px;color:#2E6B12;margin-top:.5rem;font-weight:600">✓ Copié automatiquement dans votre presse-papier</div>
+      </div>
+
+      <div style="background:#FFF8E6;border:2px solid #FFD82B;border-radius:12px;padding:1rem;margin-bottom:1.25rem;text-align:left">
+        <div style="font-size:12px;font-weight:700;color:#B8940A;margin-bottom:.5rem">⚠️ Notez ce code — il ne pourra pas être modifié</div>
+        <div style="font-size:12px;color:#5A4A00;line-height:1.6">
+          Ce code est <strong>unique et définitif</strong>. Avec lui, vous pouvez :<br>
+          • Accéder rapidement à votre planning<br>
+          • <strong>Annuler vos RDV</strong> si besoin<br><br>
+          <strong>Sans ce code</strong>, vous pouvez toujours consulter votre planning avec votre email, mais vous ne pourrez pas annuler vos RDV. Pour toute modification, contactez l'équipe communication de PIE par email.
+        </div>
+      </div>
+
+      <button id="code-ok-btn" style="background:var(--cyan);color:#fff;border:none;border-radius:10px;padding:12px 24px;font-family:var(--font);font-size:14px;font-weight:700;cursor:pointer;width:100%">
+        J'ai noté mon code → Continuer
+      </button>
+    </div>`;
+  document.body.appendChild(overlay);
+  document.getElementById('code-ok-btn').addEventListener('click', () => {
+    overlay.remove();
+    openDrawer(pendingExp);
+  });
 }
 
 async function confirmBooking() {
@@ -242,7 +326,6 @@ async function confirmBooking() {
   if (!email) { toast('Merci de renseigner votre email.'); return; }
   if (!problematique) { toast('Merci de décrire votre problématique.'); return; }
 
-  // Vérification : même email + même exposant = doublon interdit
   const doublon = DATA.bookings.find(b =>
     b.exposantId === pendingExp &&
     (b.email || '').toLowerCase() === email.toLowerCase()
@@ -258,6 +341,7 @@ async function confirmBooking() {
   const exp  = DATA.exposants.find(e => e.id === pendingExp);
   loader(true);
   try {
+    const { code, isNew } = await getOrCreateVisitorCode(email);
     const ref = await addDoc(collection(db, 'bookings'), {
       exposantId: pendingExp,
       slotStart:  pendingSlot,
@@ -268,10 +352,15 @@ async function confirmBooking() {
     });
     DATA.bookings.push({ id: ref.id, exposantId: pendingExp, slotStart: pendingSlot, slotEnd: slot?.end, period: slot?.period, prenom, nom, email, societe, problematique });
     closeModal();
-    el('d-confirm').innerHTML = `<div class="confirm-ok"><i class="ti ti-circle-check"></i><div>RDV confirmé — ${prenom} ${nom}<br><span style="font-weight:400;font-size:12px">${pendingSlot}–${slot?.end} chez ${exp?.name}</span></div></div>`;
-    openDrawer(pendingExp);
+    if (isNew) {
+      showCodeModal(code, prenom, exp?.name, pendingSlot, slot?.end);
+    } else {
+      el('d-confirm').innerHTML = `<div class="confirm-ok"><i class="ti ti-circle-check"></i><div>RDV confirmé — ${prenom} ${nom}<br><span style="font-weight:400;font-size:12px">${pendingSlot}–${slot?.end} chez ${exp?.name}</span></div></div>`;
+      openDrawer(pendingExp);
+    }
+    renderStats();
     toast('RDV confirmé !');
-  } catch (e) {
+  } catch(e) {
     console.error(e);
     toast('Erreur lors de la réservation.');
   }
@@ -334,7 +423,7 @@ function renderCal() {
   if (!exp) return;
 
   el('cal-name').textContent = exp.name;
-  el('cal-meta').textContent = exp.cat + ' · 22 septembre 2025';
+  el('cal-meta').textContent = exp.cat + ' · 22 septembre 2026';
 
   const switcher = el('cal-periods');
   switcher.innerHTML = [
@@ -760,51 +849,68 @@ function switchVisitorTab(tab) {
 }
 
 function searchMesRdvs() {
-  const email   = (el('mes-email')?.value || '').trim().toLowerCase();
-  const result  = el('mes-result');
-  if (!result) return;
-
-  if (!email) {
-    result.innerHTML = '<div class="rdv-empty"><i class="ti ti-mail"></i><p>Saisissez votre email pour voir vos RDV.</p></div>';
+  const input  = (el('mes-search-input')?.value || '').trim();
+  const result = el('mes-result');
+  if (!result || !input) {
+    if (result) result.innerHTML = '<div class="rdv-empty"><i class="ti ti-id-badge"></i><p>Saisissez votre code ou votre email.</p></div>';
     return;
   }
 
-  const found = DATA.bookings
-    .filter(b => (b.email || '').toLowerCase() === email)
-    .sort((a, b) => a.slotStart.localeCompare(b.slotStart));
+  const isCode    = /^\d{6}$/.test(input);
+  const emailLow  = input.toLowerCase();
+  let found, hasCode = false, visitorCode = null;
+
+  if (isCode) {
+    // Recherche par code → peut annuler
+    const visitor = DATA.visitors.find(v => v.code === input);
+    if (!visitor) {
+      result.innerHTML = '<div class="rdv-empty"><i class="ti ti-x"></i><p>Code introuvable. Vérifiez votre code ou utilisez votre email.</p></div>';
+      return;
+    }
+    found     = DATA.bookings.filter(b => (b.email||'').toLowerCase() === visitor.email).sort((a,b) => a.slotStart.localeCompare(b.slotStart));
+    hasCode   = true;
+    visitorCode = input;
+  } else {
+    // Recherche par email → lecture seule
+    found = DATA.bookings.filter(b => (b.email||'').toLowerCase() === emailLow).sort((a,b) => a.slotStart.localeCompare(b.slotStart));
+    hasCode = false;
+  }
 
   if (!found.length) {
-    result.innerHTML = '<div class="rdv-empty"><i class="ti ti-calendar-off"></i><p>Aucun rendez-vous trouvé pour cet email.</p></div>';
+    result.innerHTML = '<div class="rdv-empty"><i class="ti ti-calendar-off"></i><p>Aucun rendez-vous trouvé.</p></div>';
     return;
   }
 
+  const firstB = found[0];
   result.innerHTML = `
-    <div style="font-size:13px;color:var(--ink3);margin-bottom:1rem">
-      ${found.length} rendez-vous confirmé${found.length > 1 ? 's' : ''} pour le 22 septembre 2025
+    <div class="mes-rdv-header">
+      <div style="font-size:14px;font-weight:600;color:var(--ink)">${firstB.prenom} ${firstB.nom}</div>
+      <div style="font-size:13px;color:var(--ink3);margin-top:2px">${found.length} RDV confirmé${found.length>1?'s':''} · 22 septembre 2026</div>
+      ${!hasCode ? `<div style="font-size:12px;color:#B8940A;background:#FFF8E6;border:1px solid #FFD82B;border-radius:6px;padding:6px 10px;margin-top:8px">
+        <i class="ti ti-lock" style="font-size:12px"></i> Mode lecture seule — saisissez votre code à 6 chiffres pour pouvoir annuler vos RDV.
+      </div>` : `<div style="font-size:12px;color:#2E6B12;background:#EAF3DE;border:1px solid #6BAA38;border-radius:6px;padding:6px 10px;margin-top:8px">
+        <i class="ti ti-lock-open" style="font-size:12px"></i> Accès complet — vous pouvez annuler vos RDV.
+      </div>`}
     </div>` +
     found.map(b => {
-      const exp  = DATA.exposants.find(e => e.id === b.exposantId);
-      const isPm = b.period === 'aprem';
-      const tag  = isPm
-        ? '<span class="tag-pm">Après-midi</span>'
-        : '<span class="tag-am">Matin</span>';
-      return `<div class="rdv-card" data-bid="${b.id}">
-        <div class="rdv-card-time">${b.slotStart}<span style="font-size:13px;color:var(--ink3)">–${b.slotEnd}</span></div>
+      const exp = DATA.exposants.find(e => e.id === b.exposantId);
+      const tag = b.period === 'aprem' ? '<span class="tag-pm">Après-midi</span>' : '<span class="tag-am">Matin</span>';
+      return `<div class="rdv-card">
+        <div class="rdv-card-time">${b.slotStart}<span style="font-size:12px;color:var(--ink3)">–${b.slotEnd}</span></div>
         <div class="rdv-card-info">
-          <div class="rdv-card-exp"><i class="ti ti-building" style="font-size:13px;vertical-align:-2px;margin-right:4px"></i>${exp?.name || '–'}</div>
-          <div class="rdv-card-meta">${exp?.cat || ''}</div>
+          <div class="rdv-card-exp">${exp?.name || '–'}</div>
+          <div class="rdv-card-meta">${exp?.cat||''}${exp?.expertise?' · '+exp.expertise:''}</div>
         </div>
         ${tag}
-        <button class="cancel-rdv-btn" data-id="${b.id}" data-exp="${exp?.name || ''}" data-time="${b.slotStart}" title="Annuler ce RDV">
-          <i class="ti ti-trash"></i> Annuler
-        </button>
+        ${hasCode ? `<button class="cancel-rdv-btn" data-id="${b.id}" data-exp="${exp?.name||''}" data-time="${b.slotStart}"><i class="ti ti-trash"></i> Annuler</button>` : ''}
       </div>`;
     }).join('');
 
-  // Brancher les boutons d'annulation
-  el('mes-result').querySelectorAll('.cancel-rdv-btn').forEach(btn => {
-    btn.addEventListener('click', () => cancelVisitorRdv(btn.dataset.id, btn.dataset.exp, btn.dataset.time));
-  });
+  if (hasCode) {
+    result.querySelectorAll('.cancel-rdv-btn').forEach(btn => {
+      btn.addEventListener('click', () => cancelVisitorRdv(btn.dataset.id, btn.dataset.exp, btn.dataset.time));
+    });
+  }
 }
 
 async function cancelVisitorRdv(bookingId, expName, slotTime) {
@@ -832,7 +938,7 @@ if (IS_VISITOR) {
 
   // Mes RDV
   el('mes-search-btn')?.addEventListener('click', searchMesRdvs);
-  el('mes-email')?.addEventListener('keydown', e => { if (e.key === 'Enter') searchMesRdvs(); });
+  el('mes-search-input')?.addEventListener('keydown', e => { if (e.key === 'Enter') searchMesRdvs(); });
 
   el('vis-search').addEventListener('input', renderGrid);
   el('vis-cat').addEventListener('change', renderGrid);
