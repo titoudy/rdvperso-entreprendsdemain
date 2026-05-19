@@ -1,7 +1,7 @@
 /* RDV Événement · app.js · Firebase Firestore */
 
 import { initializeApp }   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
-import { getFirestore, collection, doc, getDocs, addDoc, updateDoc, deleteDoc, writeBatch, query, orderBy }
+import { getFirestore, collection, doc, getDocs, addDoc, updateDoc, deleteDoc, writeBatch, query, orderBy, enableIndexedDbPersistence }
   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 
 /* ── Firebase ─────────────────────────────────────────────────── */
@@ -15,6 +15,9 @@ const app = initializeApp({
   appId:             '1:303753000581:web:ef789f95513debcfac1bec',
 });
 const db = getFirestore(app);
+
+// Cache local pour accélerer les chargements suivants
+enableIndexedDbPersistence(db).catch(() => {});
 
 /* ── Créneaux ─────────────────────────────────────────────────── */
 
