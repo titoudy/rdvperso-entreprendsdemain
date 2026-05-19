@@ -293,8 +293,8 @@ body { font-family: var(--font); background: var(--bg); color: var(--ink); -webk
 .edit-panel-title { font-family: var(--font); font-size: 16px; font-weight: 700; color: var(--cyan-d); margin-bottom: 1.25rem; display: flex; align-items: center; gap: 8px; }
 .edit-form { display: flex; flex-direction: column; gap: 12px; }
 .edit-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 4px; }
-.edit-exp-btn { background: transparent; border: none; cursor: pointer; color: var(--ink3); padding: 4px; border-radius: var(--r); opacity: 0; transition: .15s; display: flex; align-items: center; flex-shrink: 0; }
-.exp-item:hover .edit-exp-btn { opacity: 1; }
+.edit-exp-btn { background: transparent; border: none; cursor: pointer; color: var(--cyan); padding: 4px; border-radius: var(--r); opacity: 1; transition: .15s; display: flex; align-items: center; flex-shrink: 0; }
+
 .edit-exp-btn:hover { color: var(--cyan); background: var(--cyan-l); }
 .exp-item.active .edit-exp-btn { color: rgba(255,255,255,.5); }
 .exp-item.active .edit-exp-btn:hover { color: #fff; background: rgba(255,255,255,.2); }

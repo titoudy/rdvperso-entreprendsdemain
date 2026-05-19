@@ -161,7 +161,7 @@ function renderGrid() {
     return `<div class="exp-card" data-id="${exp.id}">
       <div class="exp-card-top">
         <div class="avatar">${initials(exp.name)}</div>
-        <div><div class="exp-name">${exp.name}</div><div class="exp-cat">${exp.cat}${exp.activite ? ' · <span style="color:var(--ink3)">' + exp.activite + '</span>' : ''}</div></div>
+        <div><div class="exp-name">${exp.name}</div><div class="exp-cat">${exp.cat}${exp.expertise ? ' · <span style="color:var(--ink3)">' + exp.expertise + '</span>' : ''}</div></div>
         <i class="ti ti-chevron-right exp-arrow"></i>
       </div>
       <div class="pills">${pills}</div>
@@ -181,7 +181,7 @@ function openDrawer(expId) {
   const pSlots = slots.filter(s => s.period === 'aprem');
 
   el('d-name').textContent = exp.name;
-  el('d-cat').textContent  = exp.cat + (exp.activite ? ' · ' + exp.activite : '');
+  el('d-cat').textContent  = exp.cat + (exp.expertise ? ' · ' + exp.expertise : '');
   el('d-confirm').innerHTML = '';
 
   function fillSlots(list, containerId, freeCls) {
@@ -305,7 +305,7 @@ function renderExpList() {
   listEl.innerHTML = DATA.exposants.map(exp => `
     <div class="exp-item${selId === exp.id ? ' active' : ''}" data-id="${exp.id}">
       <div class="avatar" style="font-size:12px">${initials(exp.name)}</div>
-      <div style="flex:1"><div class="ei-name">${exp.name}</div><div class="ei-cat">${exp.cat}${exp.activite ? ' · '+exp.activite : ''}</div></div>
+      <div style="flex:1"><div class="ei-name">${exp.name}</div><div class="ei-cat">${exp.cat}${exp.expertise ? ' · '+exp.expertise : ''}</div></div>
       <button class="edit-exp-btn" data-id="${exp.id}" title="Modifier"><i class="ti ti-pencil" style="font-size:13px"></i></button>
       <button class="del-exp-btn" data-id="${exp.id}" title="Supprimer"><i class="ti ti-trash" style="font-size:13px"></i></button>
     </div>`).join('');
@@ -437,14 +437,14 @@ function toggleForm() {
 async function addExposant() {
   const name     = el('f-name').value.trim();
   const cat      = el('f-cat').value || 'Autre';
-  const activite = el('f-activite') ? el('f-activite').value.trim() : '';
+  const expertise = el('f-expertise') ? el('f-expertise').value.trim() : '';
   const period   = el('f-period').value;
   if (!name) { toast('Merci de saisir un nom.'); return; }
   if (!cat || cat === 'Autre') { toast('Merci de choisir une catégorie.'); return; }
   loader(true);
   try {
-    const ref = await addDoc(collection(db, 'exposants'), { name, cat, activite, period, createdAt: Date.now() });
-    const exp = { id: ref.id, name, cat, activite, period };
+    const ref = await addDoc(collection(db, 'exposants'), { name, cat, expertise, period, createdAt: Date.now() });
+    const exp = { id: ref.id, name, cat, expertise, period };
     DATA.exposants.push(exp);
     const created = [];
     for (const s of slotsForPeriod(period)) {
@@ -453,7 +453,7 @@ async function addExposant() {
     }
     DATA.slots[exp.id] = created;
     el('f-name').value = '';
-    if(el('f-activite')) el('f-activite').value = '';
+    if(el('f-expertise')) el('f-expertise').value = '';
     toggleForm();
     renderExpList(); renderStats();
     toast(name + ' ajouté !');
@@ -495,7 +495,7 @@ function openEditPanel(expId) {
             ${CATS.map(c => `<option value="${c}" ${exp.cat === c ? 'selected' : ''}>${c}</option>`).join('')}
           </select>
         </div>
-        <div class="field"><label>Activité</label><input id="e-activite" value="${exp.activite || ''}" placeholder="ex: Avocat, Architecte…" /></div>
+        <div class="field"><label>Expertise</label><input id="e-expertise" value="${exp.expertise || ''}" placeholder="ex: Avocat, Architecte…" /></div>
         <div class="field"><label>Disponibilité</label>
           <select id="e-period">
             <option value="jour"  ${exp.period==='jour'  ? 'selected':''}>Journée complète (10h–17h)</option>
@@ -521,17 +521,17 @@ async function saveEditExposant(expId) {
   const exp      = DATA.exposants.find(e => e.id === expId);
   const name     = el('e-name').value.trim();
   const cat      = el('e-cat').value;
-  const activite = el('e-activite').value.trim();
+  const expertise = el('e-expertise').value.trim();
   const period   = el('e-period').value;
   if (!name) { toast('Merci de saisir un nom.'); return; }
 
   loader(true);
   try {
     const periodChanged = period !== exp.period;
-    await updateDoc(doc(db, 'exposants', expId), { name, cat, activite, period });
+    await updateDoc(doc(db, 'exposants', expId), { name, cat, expertise, period });
     exp.name     = name;
     exp.cat      = cat;
-    exp.activite = activite;
+    exp.expertise = expertise;
     exp.period   = period;
 
     if (periodChanged) {
@@ -836,6 +836,7 @@ if (IS_VISITOR) {
 
   el('vis-search').addEventListener('input', renderGrid);
   el('vis-cat').addEventListener('change', renderGrid);
+  el('vis-expertise')?.addEventListener('change', renderGrid);
 
   document.querySelectorAll('.pf').forEach(btn => {
     btn.addEventListener('click', () => {
