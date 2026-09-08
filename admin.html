@@ -6,7 +6,8 @@
   <title>Admin · Entreprends Demain !</title>
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css" />
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="style.css?v=1788869450" />
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
 <body>
 
@@ -221,7 +222,10 @@
   <div id="tab-visiteurs" style="display:none;padding:1.75rem;max-width:1000px;margin:0 auto">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem;flex-wrap:wrap;gap:10px">
       <div style="font-family:var(--font);font-size:20px;font-weight:700;color:var(--ink)">Visiteurs inscrits</div>
-      <input id="vis-admin-search" type="text" placeholder="Rechercher…" style="padding:7px 12px;border-radius:8px;border:1.5px solid var(--brd2);font-family:var(--font);font-size:13px;min-width:220px" />
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <input id="vis-admin-search" type="text" placeholder="Rechercher…" style="padding:7px 12px;border-radius:8px;border:1.5px solid var(--brd2);font-family:var(--font);font-size:13px;min-width:220px" />
+        <button id="export-visiteurs-xlsx-btn" class="btn-ghost" style="padding:7px 14px;font-size:13px"><i class="ti ti-file-spreadsheet"></i> Exporter Excel</button>
+      </div>
     </div>
     <div id="visiteurs-list"></div>
     <div id="visiteur-detail" style="display:none;margin-top:1.5rem;background:#fff;border:1.5px solid var(--brd2);border-radius:16px;padding:1.5rem">
@@ -386,6 +390,6 @@
 <div id="toast" class="toast"></div>
 <div id="loader" class="loader"><div class="loader-inner"><div class="spinner"></div><div class="loader-msg">Chargement...</div></div></div>
 
-<script type="module" src="app.js?v=1785141682"></script>
+<script type="module" src="app.js?v=1788869450"></script>
 </body>
 </html>
